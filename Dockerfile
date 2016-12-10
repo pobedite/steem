@@ -21,29 +21,12 @@ RUN \
         pbzip2 \
         python3 \
         python3-dev \
+        haproxy \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ADD . /usr/local/src/steem
-
-RUN \
-    cd /usr/local/src/steem && \
-    git submodule update --init --recursive && \
-    mkdir build && \
-    cd build && \
-    cmake \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_STEEM_TESTNET=ON \
-        -DLOW_MEMORY_NODE=OFF \
-        -DCLEAR_VOTES=ON \
-        .. && \
-    make -j$(nproc) chain_test && \
-    ./tests/chain_test && \
-    cd /usr/local/src/steem && \
-    doxygen && \
-    programs/build_helpers/check_reflect.py && \
-    rm -rf /usr/local/src/steem/build
 
 RUN \
     cd /usr/local/src/steem && \
@@ -151,3 +134,9 @@ ADD doc/seednodes.txt /etc/steemd/seednodes.txt
 
 # the following adds lots of logging info to stdout
 ADD contrib/config-for-docker.ini /etc/steemd/config.ini
+ADD contrib/fullnode.config.ini /etc/steemd/fullnode.config.ini
+
+# add/overwrite the haproxy config file for multicore readonly processes
+# and create the socket directory for haproxy
+RUN mkdir -p /run/haproxy
+ADD contrib/config-for-haproxy /etc/haproxy/haproxy.cfg
