@@ -22,6 +22,7 @@ RUN \
         python3 \
         python3-dev \
         haproxy \
+        wget \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -125,9 +126,7 @@ EXPOSE 8090
 # p2p service:
 EXPOSE 2001
 
-RUN mkdir -p /etc/service/steemd
-ADD contrib/steemd.run /etc/service/steemd/run
-RUN chmod +x /etc/service/steemd/run
+ADD contrib/steemd.run /etc/steemd/steem-sv-run.sh
 
 # add seednodes from documentation to image
 ADD doc/seednodes.txt /etc/steemd/seednodes.txt
@@ -140,3 +139,14 @@ ADD contrib/fullnode.config.ini /etc/steemd/fullnode.config.ini
 # and create the socket directory for haproxy
 RUN mkdir -p /run/haproxy
 ADD contrib/config-for-haproxy /etc/haproxy/haproxy.cfg
+
+# add PaaS startup script
+ADD contrib/startpaassteemd.sh /usr/local/bin/startpaassteemd.sh
+RUN chmod +x /usr/local/bin/startpaassteemd.sh
+
+# new entrypoint for all instances
+# this enables exitting of the container when the writer node dies
+# for PaaS mode (elasticbeanstalk, etc)
+ADD contrib/steemdentrypoint.sh /usr/local/bin/steemdentrypoint.sh
+RUN chmod +x /usr/local/bin/steemdentrypoint.sh
+CMD /usr/local/bin/steemdentrypoint.sh

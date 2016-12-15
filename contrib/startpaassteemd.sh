@@ -1,23 +1,7 @@
 #!/bin/bash
-
-# if were running in aws, avoid this sv script altogether and run a startup script elsewhere
-# leaving sv configured from the dockerfile for users who aren't running as a eb app
-# this is so the container dies if steemd dies to bring up another eb instance
-
-if [[ "$USE_PAAS" ]]; then
-  sv down /etc/service/steemd
-  mv /etc/service/steemd/run /etc/service/steemd/dontrun
-  /usr/local/bin/startpaassteemd.sh
-  exit 1
-fi
-
 export HOME="/var/lib/steemd"
 
-STEEMD="/usr/local/steemd-default/bin/steemd"
-
-if [[ "$USE_WAY_TOO_MUCH_RAM" ]]; then
-    STEEMD="/usr/local/steemd-full/bin/steemd"
-fi
+STEEMD="/usr/local/steemd-full/bin/steemd"
 
 chown -R steemd:steemd $HOME
 
@@ -43,48 +27,26 @@ if [[ ! -z "$STEEMD_SEED_NODES" ]]; then
     done
 fi
 
-if [[ ! -z "$STEEMD_WITNESS_NAME" ]]; then
-    ARGS+=" --witness=\"$STEEMD_WITNESS_NAME\""
-fi
-
-if [[ ! -z "$STEEMD_MINER_NAME" ]]; then
-    ARGS+=" --miner=[\"$STEEMD_MINER_NAME\",\"$STEEMD_PRIVATE_KEY\"]"
-    ARGS+=" --mining-threads=$(nproc)"
-fi
-
-if [[ ! -z "$STEEMD_PRIVATE_KEY" ]]; then
-    ARGS+=" --private-key=$STEEMD_PRIVATE_KEY"
-fi
-
 # overwrite local config with image one
-if [[ "$USE_FULL_WEB_NODE" ]]; then
-  cp /etc/steemd/fullnode.config.ini $HOME/config.ini
-else
-  cp /etc/steemd/config.ini $HOME/config.ini
-fi
+cp /etc/steemd/fullnode.config.ini $HOME/config.ini
 
 chown steemd:steemd $HOME/config.ini
 
-if [[ ! -d $HOME/blockchain ]]; then
-    if [[ -e /var/cache/steemd/blocks.tbz2 ]]; then
-        # init with blockchain cached in image
-        ARGS+=" --replay-blockchain"
-        mkdir -p $HOME/blockchain/database
-        cd $HOME/blockchain/database
-        tar xvjpf /var/cache/steemd/blocks.tbz2
-        chown -R steemd:steemd $HOME/blockchain
-    fi
-fi
-
-# without --data-dir it uses cwd as datadir(!)
-# who knows what else it dumps into current dir
 cd $HOME
 
-# slow down restart loop if flapping
-sleep 1
+# get blockchain state from a URL and unzip with pbzip2
+# if this url is not provieded then we might as well exit
+if [[ ! -z "$BLOCKCHAIN_URL" ]]; then
+   wget $BLOCKCHAIN_URL
+   pbzip2 -dcv blockchain.tar.bz2 | tar x
+   rm -rf blockchain.tar.bz2
+else
+  echo Error - no URL specified to get blockchain URL from - exiting
+  exit 0
+fi
 
-#start multiple read-only instances based on the number of cores
-#attach to the local interface since a proxy will be used to loadbalance
+# start multiple read-only instances based on the number of cores
+# attach to the local interface since a proxy will be used to loadbalance
 if [[ "$USE_MULTICORE_READONLY" ]]; then
     exec chpst -usteemd \
         $STEEMD \
@@ -94,11 +56,11 @@ if [[ "$USE_MULTICORE_READONLY" ]]; then
             $ARGS \
             $STEEMD_EXTRA_OPTS \
             2>&1 &
-    #sleep for a moment to allow the writer node to be ready to accept connections from the readers
+    # sleep for a moment to allow the writer node to be ready to accept connections from the readers
     sleep 5
     PORT_NUM=8092
-    #don't generate endpoints in haproxy config if it already exists
-    #this prevents adding to it if the docker container is stopped/started
+    # don't generate endpoints in haproxy config if it already exists
+    # this prevents adding to it if the docker container is stopped/started
     if [[ ! -f /etc/haproxy/haproxy.steem.cfg ]]; then
         cp /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.steem.cfg
         for (( i=2; i<=$(nproc); i++ ))
