@@ -1,18 +1,5 @@
 #!/bin/bash
 
-# if were running in aws, avoid this sv script altogether and run a startup script elsewhere
-# leaving sv configured from the dockerfile for users who aren't running as a eb app
-# this is so the container dies if steemd dies to bring up another eb instance
-
-if [[ "$USE_PAAS" ]]; then
-  sv down /etc/service/steemd
-  mv /etc/service/steemd/run /etc/service/steemd/dontrun
-  /usr/local/bin/startpaassteemd.sh
-  exit 1
-fi
-
-export HOME="/var/lib/steemd"
-
 STEEMD="/usr/local/steemd-default/bin/steemd"
 
 if [[ "$USE_WAY_TOO_MUCH_RAM" ]]; then

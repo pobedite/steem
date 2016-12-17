@@ -36,12 +36,18 @@ cd $HOME
 
 # get blockchain state from a URL and unzip with pbzip2
 # if this url is not provieded then we might as well exit
+# if s3 credentils were passed through then xfer an
+# uncompressed copy from s3 with mutlithreaded s4cmd
 if [[ ! -z "$BLOCKCHAIN_URL" ]]; then
-   wget $BLOCKCHAIN_URL
-   pbzip2 -dcv blockchain.tar.bz2 | tar x
-   rm -rf blockchain.tar.bz2
+   if [[ -z "$S3_SECRET_KEY" ]]; then
+     wget $BLOCKCHAIN_URL
+     pbzip2 -dcv blockchain.tar.bz2 | tar x
+     rm -rf blockchain.tar.bz2
+   else
+     s4cmd get -r $BLOCKCHAIN_URL
+   fi
 else
-  echo Error - no URL specified to get blockchain URL from - exiting
+  echo error: no URL specified to get blockchain state from - exiting
   exit 0
 fi
 
@@ -82,10 +88,15 @@ if [[ "$USE_MULTICORE_READONLY" ]]; then
           ((PORT_NUM++))
           sleep 1
     done
-    #start haproxy now that the config file is complete with all endpoints
-    #all of the read-only processes will connect to the write node onport 8091
-    #haproxy will balance all incoming traffic on port 8090
-    /usr/sbin/haproxy -f /etc/haproxy/haproxy.steem.cfg 2>&1
+    # start haproxy now that the config file is complete with all endpoints
+    # all of the read-only processes will connect to the write node onport 8091
+    # haproxy will balance all incoming traffic on port 8090
+    /usr/sbin/haproxy -D -f /etc/haproxy/haproxy.steem.cfg 2>&1
+    # start runsv script that kills containers if they die
+    mkdir -p /etc/service/steemd
+    cp /usr/local/bin/paas-sv-run.sh /etc/service/steemd/run
+    chmod +x /etc/service/steemd/run
+    runsv /etc/service/steemd
 else
     exec chpst -usteemd \
         $STEEMD \
@@ -94,5 +105,9 @@ else
             --data-dir=$HOME \
             $ARGS \
             $STEEMD_EXTRA_OPTS \
-            2>&1
+            2>&1&
+    mkdir -p /etc/service/steemd
+    cp /usr/local/bin/paas-sv-run.sh /etc/service/steemd/run
+    chmod +x /etc/service/steemd/run
+    runsv /etc/service/steemd
 fi

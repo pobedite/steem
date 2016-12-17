@@ -23,6 +23,8 @@ RUN \
         python3-dev \
         haproxy \
         wget \
+        python-dev \
+        python-pip \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -108,6 +110,10 @@ RUN \
         /usr/include \
         /usr/local/include
 
+# install s4cmd for multithreaded get/put into AWS s3
+RUN pip install s4cmd
+RUN chmod a+x /usr/local/bin/s4cmd
+
 RUN useradd -s /bin/bash -m -d /var/lib/steemd steemd
 
 RUN mkdir /var/cache/steemd && \
@@ -126,7 +132,9 @@ EXPOSE 8090
 # p2p service:
 EXPOSE 2001
 
-ADD contrib/steemd.run /etc/steemd/steem-sv-run.sh
+# add normal startup script that starts via sv
+ADD contrib/steemd.run /usr/local/bin/steem-sv-run.sh
+RUN chmod +x /usr/local/bin/steem-sv-run.sh
 
 # add seednodes from documentation to image
 ADD doc/seednodes.txt /etc/steemd/seednodes.txt
@@ -140,13 +148,16 @@ ADD contrib/fullnode.config.ini /etc/steemd/fullnode.config.ini
 RUN mkdir -p /run/haproxy
 ADD contrib/config-for-haproxy /etc/haproxy/haproxy.cfg
 
-# add PaaS startup script
+# add PaaS startup script and service script
 ADD contrib/startpaassteemd.sh /usr/local/bin/startpaassteemd.sh
+ADD contrib/paas-sv-run.sh /usr/local/bin/paas-sv-run.sh
 RUN chmod +x /usr/local/bin/startpaassteemd.sh
+RUN chmod +x /usr/local/bin/paas-sv-run.sh
 
 # new entrypoint for all instances
 # this enables exitting of the container when the writer node dies
 # for PaaS mode (elasticbeanstalk, etc)
+# AWS EB Docker requires a non-daemonized entrypoint
 ADD contrib/steemdentrypoint.sh /usr/local/bin/steemdentrypoint.sh
 RUN chmod +x /usr/local/bin/steemdentrypoint.sh
 CMD /usr/local/bin/steemdentrypoint.sh
