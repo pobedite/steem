@@ -52,6 +52,9 @@ else
   exit 1
 fi
 
+# change owner of downloaded blockchainstate to steemd user
+chown -R steemd:steemd /var/lib/steemd/*
+
 # start multiple read-only instances based on the number of cores
 # attach to the local interface since a proxy will be used to loadbalance
 if [[ "$USE_MULTICORE_READONLY" ]]; then
