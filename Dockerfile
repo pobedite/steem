@@ -112,8 +112,9 @@ RUN \
         /usr/local/include
 
 # install s4cmd for multithreaded get/put into AWS s3
-RUN pip install s4cmd
-RUN chmod a+x /usr/local/bin/s4cmd
+# RUN pip install s4cmd
+# RUN chmod a+x /usr/local/bin/s4cmd
+RUN pip install s3cmd
 
 RUN useradd -s /bin/bash -m -d /var/lib/steemd steemd
 
