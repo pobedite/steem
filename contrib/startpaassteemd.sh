@@ -34,21 +34,21 @@ chown steemd:steemd $HOME/config.ini
 
 cd $HOME
 
-# get blockchain state from a URL and unzip with pbzip2
+# get blockchain state from an S3 bucket
 # if this url is not provieded then we might as well exit
-# if s3 credentils were passed through then xfer an
-# uncompressed copy from s3 with mutlithreaded s4cmd
 if [[ ! -z "$BLOCKCHAIN_URL" ]]; then
-   if [[ -z "$S3_SECRET_KEY" ]]; then
-     wget $BLOCKCHAIN_URL
-     pbzip2 -dcv blockchain.tar.bz2 | tar x
-     rm -rf blockchain.tar.bz2
-   else
-     s4cmd get -r $BLOCKCHAIN_URL
-   fi
+  # get IAM creds passed to EC2 and import as env vars
+  # (since s4cmd doesn't support the AWS SDK natively like s3cmd)
+  export S3_ACCESS_KEY=$(curl http://169.254.169.254/latest/meta-data/iam/security-credentials/aws-elasticbeanstalk-ec2-role | jq -r .AccessKeyId)
+  export S3_SECRET_KEY=$(curl http://169.254.169.254/latest/meta-data/iam/security-credentials/aws-elasticbeanstalk-ec2-role | jq -r .SecretAccessKey)
+  s4cmd get -r $BLOCKCHAIN_URL
+  if [[ $? -ne 0 ]]; then
+    echo error: unable to pull blockchain state from S3 - exitting
+    exit 1
+  fi
 else
   echo error: no URL specified to get blockchain state from - exiting
-  exit 0
+  exit 1
 fi
 
 # start multiple read-only instances based on the number of cores
