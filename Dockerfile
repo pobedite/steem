@@ -22,10 +22,8 @@ RUN \
         python3 \
         python3-dev \
         haproxy \
-        wget \
         python-dev \
         python-pip \
-        jq \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -111,9 +109,7 @@ RUN \
         /usr/include \
         /usr/local/include
 
-# install s4cmd for multithreaded get/put into AWS s3
-# RUN pip install s4cmd
-# RUN chmod a+x /usr/local/bin/s4cmd
+# install s3cmd for pulling blockchainstate from S3 buckets
 RUN pip install s3cmd
 
 RUN useradd -s /bin/bash -m -d /var/lib/steemd steemd
