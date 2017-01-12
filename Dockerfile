@@ -22,8 +22,9 @@ RUN \
         python3 \
         python3-dev \
         haproxy \
-        python-dev \
-        python-pip \
+        s3cmd \
+        awscli \
+        jq \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -109,8 +110,6 @@ RUN \
         /usr/include \
         /usr/local/include
 
-# install s3cmd for pulling blockchainstate from S3 buckets
-RUN pip install s3cmd
 
 RUN useradd -s /bin/bash -m -d /var/lib/steemd steemd
 
@@ -130,16 +129,16 @@ EXPOSE 8090
 # p2p service:
 EXPOSE 2001
 
-# add normal startup script that starts via sv
-ADD contrib/steemd.run /usr/local/bin/steem-sv-run.sh
-RUN chmod +x /usr/local/bin/steem-sv-run.sh
-
 # add seednodes from documentation to image
 ADD doc/seednodes.txt /etc/steemd/seednodes.txt
 
 # the following adds lots of logging info to stdout
 ADD contrib/config-for-docker.ini /etc/steemd/config.ini
 ADD contrib/fullnode.config.ini /etc/steemd/fullnode.config.ini
+
+# add normal startup script that starts via sv
+ADD contrib/steemd.run /usr/local/bin/steem-sv-run.sh
+RUN chmod +x /usr/local/bin/steem-sv-run.sh
 
 # add/overwrite the haproxy config file for multicore readonly processes
 # and create the socket directory for haproxy
@@ -149,8 +148,10 @@ ADD contrib/config-for-haproxy /etc/haproxy/haproxy.cfg
 # add PaaS startup script and service script
 ADD contrib/startpaassteemd.sh /usr/local/bin/startpaassteemd.sh
 ADD contrib/paas-sv-run.sh /usr/local/bin/paas-sv-run.sh
+ADD contrib/sync-sv-run.sh /usr/local/bin/sync-sv-run.sh
 RUN chmod +x /usr/local/bin/startpaassteemd.sh
 RUN chmod +x /usr/local/bin/paas-sv-run.sh
+RUN chmod +x /usr/local/bin/sync-sv-run.sh
 
 # new entrypoint for all instances
 # this enables exitting of the container when the writer node dies

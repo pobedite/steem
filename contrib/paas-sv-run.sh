@@ -2,17 +2,19 @@
 
 # if all of the reader nodes die, kill runsv causing the container to exit
 if [[ "$USE_MULTICORE_READONLY" ]]; then
-  ps ax | grep read-only
+  pgrep -f read-only
   if [[ ! $? -eq 0 ]]; then
-    RUN_SV_PID=`ps ax | grep 'runsv /etc/service/steemd' | grep -o '^[ ]*[0-9]*'`
+  	echo ALERT! steemd reader nodes have quit unexpectedly, starting a new instance..
+    RUN_SV_PID=`pgrep -f /etc/service/steemd`
     kill -9 $RUN_SV_PID
   fi
 fi
 
 # if the writer node dies, kill runsv causing the container to exit
-ps ax | grep p2p-endpoint
+pgrep -f p2p-endpoint
 if [[ ! $? -eq 0 ]]; then
-  RUN_SV_PID=`ps ax | grep 'runsv /etc/service/steemd' | grep -o '^[ ]*[0-9]*'`
+  echo ALERT! steemd has quit unexpectedly, starting a new instance..
+  RUN_SV_PID=`pgrep -f /etc/service/steemd`
   kill -9 $RUN_SV_PID
 fi
 

@@ -37,6 +37,7 @@ cd $HOME
 # get blockchain state from an S3 bucket
 # if this url is not provieded then we might as well exit
 if [[ ! -z "$BLOCKCHAIN_URL" ]]; then
+  echo steemd: beginning download and decompress of $BLOCKCHAIN_URL
   s3cmd get $BLOCKCHAIN_URL - | pbzip2 -m2000dc | tar x
   if [[ $? -ne 0 ]]; then
     echo error: unable to pull blockchain state from S3 - exitting
@@ -106,7 +107,11 @@ else
             $STEEMD_EXTRA_OPTS \
             2>&1&
     mkdir -p /etc/service/steemd
-    cp /usr/local/bin/paas-sv-run.sh /etc/service/steemd/run
+    if [[ ! "$SYNC_TO_S3" ]]; then
+      cp /usr/local/bin/paas-sv-run.sh /etc/service/steemd/run
+    else
+      cp /usr/local/bin/sync-sv-run.sh /etc/service/steemd/run
+    fi
     chmod +x /etc/service/steemd/run
     runsv /etc/service/steemd
 fi
