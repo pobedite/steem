@@ -2113,12 +2113,19 @@ void database::process_comment_cashout()
    auto current = cidx.begin();
    while( current != cidx.end() && current->cashout_time <= head_block_time() )
    {
-      auto itr = com_by_root.lower_bound( current->root_comment );
-      while( itr != com_by_root.end() && itr->root_comment == current->root_comment )
+      if( has_hardfork( STEEMIT_HARDFORK_0_17__769 ) )
       {
-         const auto& comment = *itr; ++itr;
-         cashout_comment_helper( comment );
-         ++count;
+         cashout_comment_helper( *current );
+      }
+      else
+      {
+         auto itr = com_by_root.lower_bound( current->root_comment );
+         while( itr != com_by_root.end() && itr->root_comment == current->root_comment )
+         {
+            const auto& comment = *itr; ++itr;
+            cashout_comment_helper( comment );
+            ++count;
+         }
       }
       current = cidx.begin();
    }
@@ -4091,6 +4098,31 @@ void database::apply_hardfork( uint32_t hardfork )
          });
          break;
       case STEEMIT_HARDFORK_0_17:
+         {
+            /*
+             * For all current comments we will either keep their current cashout time, or extend it to 1 week
+             * after creation.
+             *
+             * We cannot do a simple iteration by cashout time because we are editting cashout time.
+             * More specifically, we will be adding an explicit cashout time to all comments with parents.
+             * This will result in a very complex and redundant iteration. The simple solution, albeit
+             * containing inefficiencies is a simple iteration over all comments.
+             *
+             * by_root will iterate over all root posts first, which will adjust the calls to calculate_discussion_payout_time
+             * before calling on a child commment.
+             */
+            const auto& comment_idx = get_index< comment_index, by_root >();
+            for( auto itr = comment_idx.begin(); itr != comment_idx.end(); ++itr )
+            {
+               if( itr->cashout_time == fc::time_point_sec::maximum() )
+                  continue;
+
+               modify( *itr, [&]( comment_object& c )
+               {
+                  c.cashout_time = std::max( calculate_discussion_payout_time( c ), c.created + STEEMIT_CASHOUT_WINDOW_SECONDS );
+               });
+            }
+         }
          break;
       default:
          break;
