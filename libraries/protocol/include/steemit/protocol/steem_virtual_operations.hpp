@@ -145,7 +145,7 @@ namespace steemit { namespace protocol {
       string            permlink;
    };
 
-   struct comment_benefactor_reward_operation
+   struct comment_benefactor_reward_operation : public virtual_operation
    {
       comment_benefactor_reward_operation() {}
       comment_benefactor_reward_operation( const account_name_type& b, const account_name_type& a, const string& p, const asset& r )
